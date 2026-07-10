@@ -51,18 +51,48 @@ frontend-only library isn't penalized for "missing rate limiting."
 
 ## Architecture
 
-```
-React dashboard ── POST /api/scan { repoUrl } ──▶ Express API
-                                                    │
-   repoFetcher  → resolve default branch (Octokit) → download tarball → extract to temp
-   scanRunner   → build one file-tree context → run every registered check
-   scorer       → weight findings by severity → per-layer + overall score & grade
-   cleanup      → always delete the temp dir (try/finally)
+```mermaid
+flowchart TD
+    UI["React dashboard<br/>(RepoInput)"] -->|"POST /api/scan { repoUrl }"| API["Express API"]
+
+    subgraph guards["Endpoint guards"]
+        direction LR
+        RL["rateLimiter<br/><i>volume per IP</i>"] --> CL["scanLimiter<br/><i>concurrent work</i>"]
+    end
+    API --> guards
+    guards --> CTRL["scanController<br/>parse & validate repoUrl"]
+    CTRL -->|invalid input| ERR["400 / 404 / 429 / 413 / 504<br/>typed error response"]
+
+    CTRL --> FETCH
+    subgraph FETCH["repoFetcher"]
+        direction TB
+        F1["resolve default branch + size guard<br/>(Octokit)"] --> F2["download tarball<br/>(codeload)"]
+        F2 --> F3["stream to temp dir<br/><i>enforce byte cap</i>"]
+        F3 --> F4["extract<br/><i>zip-slip path filter</i>"]
+    end
+
+    FETCH --> RUN
+    subgraph RUN["scanRunner"]
+        direction TB
+        R1["buildContext<br/>one shared file-tree"] --> R2["run every registered check<br/>(checks/index.js registry)"]
+        R2 --> R3["Frontend · Backend · Database<br/>verified / detected / manual"]
+    end
+
+    RUN --> SCORE["scorer<br/>weight by severity →<br/>per-layer + overall score & grade"]
+    SCORE -->|JSON scorecard| UI
+
+    FETCH -.->|always, try/finally| CLEAN["cleanup<br/>delete temp dir"]
+    RUN -.->|always, try/finally| CLEAN
+
+    classDef guardBox fill:#fff3cd,stroke:#e0a800,color:#663c00;
+    classDef errBox fill:#f8d7da,stroke:#dc3545,color:#58151c;
+    class guards guardBox;
+    class ERR errBox;
 ```
 
 Each check is a self-contained module of the same shape (`checks/**`), loaded
 from a registry (`checks/index.js`). That plugin pattern is what makes Layers 2/3
-additive.
+additive — the runner, scorer, and dashboard never change to gain a layer.
 
 ## Scoring (transparent by design)
 

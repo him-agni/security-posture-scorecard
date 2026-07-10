@@ -29,7 +29,7 @@ export default function LayerSection({ layer }) {
     );
   }
 
-  // Sort worst-first so the scariest findings sit at the top.
+  // Sort attention-needed observations first.
   const order = { fail: 0, error: 1, warn: 2, na: 3, pass: 4 };
   const checks = [...layer.checks].sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
 

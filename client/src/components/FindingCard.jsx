@@ -3,9 +3,9 @@ import ConfidenceBadge from './ConfidenceBadge.jsx';
 // Status stays semantic (dataviz rule) and always ships with a label + dot,
 // never color alone.
 const STATUS = {
-  pass: { label: 'Pass', dot: 'bg-emerald-500', text: 'text-emerald-600', ring: 'ring-emerald-200', wash: 'bg-emerald-50/60' },
-  warn: { label: 'Warn', dot: 'bg-amber-500', text: 'text-amber-600', ring: 'ring-amber-200', wash: 'bg-amber-50/60' },
-  fail: { label: 'Fail', dot: 'bg-red-500', text: 'text-red-600', ring: 'ring-red-200', wash: 'bg-red-50/60' },
+  pass: { label: 'Clear', dot: 'bg-emerald-500', text: 'text-emerald-600', ring: 'ring-emerald-200', wash: 'bg-emerald-50/60' },
+  warn: { label: 'Watch', dot: 'bg-amber-500', text: 'text-amber-600', ring: 'ring-amber-200', wash: 'bg-amber-50/60' },
+  fail: { label: 'Attention', dot: 'bg-red-500', text: 'text-red-600', ring: 'ring-red-200', wash: 'bg-red-50/60' },
   na: { label: 'N/A', dot: 'bg-slate-400', text: 'text-slate-500', ring: 'ring-slate-200', wash: 'bg-slate-50' },
   error: { label: 'Error', dot: 'bg-fuchsia-500', text: 'text-fuchsia-600', ring: 'ring-fuchsia-200', wash: 'bg-fuchsia-50/60' },
 };

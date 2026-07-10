@@ -9,6 +9,7 @@ const typeSafety = require('./frontend/typeSafety');
 const inputValidation = require('./frontend/inputValidation');
 const routeProtection = require('./frontend/routeProtection');
 const depPresence = require('./shared/depPresence');
+const projectSupport = require('./shared/projectSupport');
 
 // Layer 2 — Backend
 const authPresent = require('./backend/authPresent');
@@ -30,6 +31,7 @@ const dbManualChecklist = require('./database/manualChecklist');
 
 const checks = [
   // frontend
+  projectSupport,
   secretsExposed,
   clientSecretExposure,
   typeSafety,

@@ -14,8 +14,8 @@ export default function PriorityFixes({ fixes = [] }) {
             ✓
           </span>
           <div>
-            <h2 className="font-semibold text-slate-800">Fix First</h2>
-            <p className="text-sm text-slate-500">No high-priority fixes found in scored checks.</p>
+            <h2 className="font-semibold text-slate-800">Review First</h2>
+            <p className="text-sm text-slate-500">No high-priority observations surfaced in scored checks.</p>
           </div>
         </div>
       </section>
@@ -26,11 +26,11 @@ export default function PriorityFixes({ fixes = [] }) {
     <section className="rounded-3xl bg-white p-5 shadow-sm shadow-emerald-900/5 ring-1 ring-emerald-900/5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-slate-800">Fix First</h2>
-          <p className="text-sm text-slate-500">Highest-impact fixes, ordered by severity, score loss, and confidence.</p>
+          <h2 className="text-lg font-semibold text-slate-800">Review First</h2>
+          <p className="text-sm text-slate-500">Highest-impact observations, ordered by severity, score impact, and confidence.</p>
         </div>
         <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 ring-1 ring-red-100">
-          {fixes.length} priorities
+          {fixes.length} observations
         </span>
       </div>
 

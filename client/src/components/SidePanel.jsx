@@ -28,14 +28,14 @@ function Stat({ label, value, tone }) {
 
 export default function SidePanel({ report }) {
   // Tally check statuses across applicable layers for the mini summary.
-  let pass = 0, warn = 0, fail = 0, info = 0;
+  let clear = 0, watch = 0, attention = 0, info = 0;
   if (report) {
     for (const l of report.layers) {
       if (l.notApplicable) continue;
       for (const c of l.checks) {
-        if (c.status === 'pass') pass++;
-        else if (c.status === 'warn') warn++;
-        else if (c.status === 'fail' || c.status === 'error') fail++;
+        if (c.status === 'pass') clear++;
+        else if (c.status === 'warn') watch++;
+        else if (c.status === 'fail' || c.status === 'error') attention++;
         else info++;
       }
     }
@@ -87,9 +87,9 @@ export default function SidePanel({ report }) {
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <Stat label="Passed" value={pass} tone="good" />
-              <Stat label="Warnings" value={warn} tone="warn" />
-              <Stat label="Failing" value={fail} tone="bad" />
+              <Stat label="Clear" value={clear} tone="good" />
+              <Stat label="Watch" value={watch} tone="warn" />
+              <Stat label="Attention" value={attention} tone="bad" />
               <Stat label="Manual" value={info} tone="info" />
             </div>
 

@@ -97,9 +97,9 @@ function priorityScore(fix) {
 function summarizeFix(check) {
   const finding = check.findings?.[0];
   if (finding?.message) return finding.message;
-  if (check.status === 'error') return 'This check could not run; inspect the check failure before trusting this area.';
-  if (check.status === 'fail') return 'This failed a scored security check and should be fixed before lower-impact warnings.';
-  return 'This warning reduced the score; fix it after higher-severity failures.';
+  if (check.status === 'error') return 'This observation could not be completed; review this area before relying on the scan.';
+  if (check.status === 'fail') return 'This scored observation had the largest impact and is worth reviewing before lower-impact items.';
+  return 'This observation reduced the score; review it after higher-severity observations.';
 }
 
 /**
@@ -117,11 +117,16 @@ function scoreReport({ repo, defaultBranch, layers }) {
     // Lift any advisory checklist (Tier-3) off its carrier check onto the layer,
     // and keep it out of the normal check-card list.
     const manualChecklist = [];
+    const supportNotices = [];
     const checks = [];
     for (const c of rawChecks) {
       if (Array.isArray(c.checklist)) {
         manualChecklist.push(...c.checklist);
         continue; // carrier check is not rendered as a card
+      }
+      if (c.id === 'project-support' && c.support && !c.support.supported) {
+        supportNotices.push(c.support);
+        continue;
       }
       checks.push(c);
     }
@@ -145,11 +150,13 @@ function scoreReport({ repo, defaultBranch, layers }) {
       notApplicable,
       checks: scored,
       ...(manualChecklist.length ? { manualChecklist } : {}),
+      ...(supportNotices.length ? { supportNotices } : {}),
     });
   }
 
   const overallScore = totalWeight === 0 ? 100 : Math.round((totalEarned / totalWeight) * 100);
   const priorityFixes = buildPriorityFixes(reportLayers);
+  const supportNotices = reportLayers.flatMap((layer) => layer.supportNotices || []);
 
   return {
     repo,
@@ -162,7 +169,9 @@ function scoreReport({ repo, defaultBranch, layers }) {
       pointsLost: Math.round(totalWeight - totalEarned),
       model: 'Each check earns its severity weight: pass=full, warn=half, fail=none. Manual items are informational and excluded.',
     },
-    priorityFixes,
+    priorityObservations: priorityFixes,
+    priorityFixes, // backwards-compatible alias for older dashboard/API consumers
+    supportNotices,
     layers: reportLayers,
   };
 }

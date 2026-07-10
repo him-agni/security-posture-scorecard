@@ -6,17 +6,17 @@ import StatTile from '../components/StatTile.jsx';
 import PriorityFixes from '../components/PriorityFixes.jsx';
 
 function tally(report) {
-  let total = 0, pass = 0, warn = 0, fail = 0;
+  let total = 0, clear = 0, watch = 0, attention = 0;
   for (const l of report.layers) {
     if (l.notApplicable) continue; // don't count skipped layers
     for (const c of l.checks) {
       total++;
-      if (c.status === 'pass') pass++;
-      else if (c.status === 'warn') warn++;
-      else if (c.status === 'fail' || c.status === 'error') fail++;
+      if (c.status === 'pass') clear++;
+      else if (c.status === 'warn') watch++;
+      else if (c.status === 'fail' || c.status === 'error') attention++;
     }
   }
-  return { total, pass, warn, fail };
+  return { total, clear, watch, attention };
 }
 
 export default function Dashboard() {
@@ -36,7 +36,7 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">Security Posture Scorecard</h1>
           <p className="text-sm text-slate-500">
-            Every finding shows its confidence —{' '}
+            Every observation shows its confidence —{' '}
             <span className="font-medium text-emerald-600">verified</span>,{' '}
             <span className="font-medium text-amber-600">detected</span>, or{' '}
             <span className="font-medium text-slate-500">manual</span>.
@@ -67,20 +67,27 @@ export default function Dashboard() {
 
           {report && !scan.isPending && (
             <>
+              {report.supportNotices?.map((notice) => (
+                <div key={notice.message} className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-amber-800">
+                  <p className="font-semibold">Support scope observation</p>
+                  <p className="mt-1 text-sm">{notice.message}</p>
+                </div>
+              ))}
+
               {/* Color-coded KPI row — the reference's lime -> forest scale */}
               {(() => {
                 const t = tally(report);
                 return (
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     <StatTile tone="forest" label="Overall" value={`${report.overall.score}`} sub={`Grade ${report.overall.grade}`} />
-                    <StatTile tone="green" label="Passed" value={t.pass} sub={`/ ${t.total}`} />
-                    <StatTile tone="amber" label="Warnings" value={t.warn} />
-                    <StatTile tone={t.fail ? 'red' : 'lime'} label="Failing" value={t.fail} />
+                    <StatTile tone="green" label="Clear" value={t.clear} sub={`/ ${t.total}`} />
+                    <StatTile tone="amber" label="Watch" value={t.watch} />
+                    <StatTile tone={t.attention ? 'red' : 'lime'} label="Attention" value={t.attention} />
                   </div>
                 );
               })()}
 
-              <PriorityFixes fixes={report.priorityFixes} />
+              <PriorityFixes fixes={report.priorityObservations || report.priorityFixes} />
 
               {report.layers.map((layer) => (
                 <div key={layer.id} className="animate-rise">
@@ -106,7 +113,7 @@ export default function Dashboard() {
       </div>
 
       <footer className="mt-10 border-t border-emerald-900/10 pt-4 text-center text-xs text-slate-400">
-        3 layers · Frontend (mostly verified) · Backend (mostly detected) · Database (mostly manual). The tool grades what it can prove and lists what it can't.
+        3 layers · Frontend (mostly verified) · Backend (mostly detected) · Database (mostly manual). The tool reports observations with confidence, not final verdicts.
       </footer>
     </div>
   );

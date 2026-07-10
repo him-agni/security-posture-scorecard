@@ -52,7 +52,7 @@ test('detects a DB connection string with credentials', () => {
 
 test('detects a private-key PEM block', () => {
   const r = run({
-    'src/notes.txt': '-----BEGIN OPENSSH PRIVATE KEY-----\nZmFrZQ==\n-----END OPENSSH PRIVATE KEY-----\n',
+    'src/key-material.js': 'const key = `-----BEGIN OPENSSH PRIVATE KEY-----\nZmFrZQ==\n-----END OPENSSH PRIVATE KEY-----`;\n',
   });
   assert.ok(ruleIds(r).includes('private-key-block'));
 });
@@ -63,6 +63,35 @@ test('suppresses obvious placeholders (no false positive)', () => {
       'const key = "your-api-key-here";\nconst aws = "AKIAIOSFODNN7EXAMPLE";\nconst k = "changeme";\n',
   });
   assert.equal(r.findings.length, 0, `unexpected findings: ${JSON.stringify(r.findings)}`);
+});
+
+test('skips docs, markdown, tests and fixtures for conservative secret scanning', () => {
+  const r = run({
+    'README.md': 'Example: ghp_1234567890abcdefghijklmnopqrstuvwxyz12\n',
+    'docs/setup.js': 'const t = "ghp_1234567890abcdefghijklmnopqrstuvwxyz12";\n',
+    'tests/config.test.js': 'const t = "ghp_1234567890abcdefghijklmnopqrstuvwxyz12";\n',
+    'fixtures/config.js': 'const t = "ghp_1234567890abcdefghijklmnopqrstuvwxyz12";\n',
+    'src/app.js': 'export const x = 1;\n',
+  });
+  assert.equal(r.status, 'pass');
+  assert.equal(r.findings.length, 0);
+});
+
+test('does not scan placeholder values in env example files', () => {
+  const r = run({
+    '.env.example': 'DATABASE_URL=postgres://user:password@example.com:5432/app\n',
+    '.gitignore': '.env\n',
+  });
+  assert.equal(r.status, 'pass');
+  assert.equal(r.findings.length, 0);
+});
+
+test('does not flag checksum/hash examples as secrets', () => {
+  const r = run({
+    'src/integrity.js': 'const checksum = "AKIAABCDEFGHIJKLMNOP";\nconst sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";\n',
+  });
+  assert.equal(r.status, 'pass');
+  assert.equal(r.findings.length, 0);
 });
 
 test('flags a committed real .env file', () => {
@@ -86,7 +115,7 @@ test('does not flag gitignore when .env IS ignored', () => {
 });
 
 test('flags a private-key file by name/extension', () => {
-  const r = run({ 'id_rsa': 'fake\n', 'certs/server.pem': 'fake\n' });
+  const r = run({ 'id_rsa': 'real key material\n', 'certs/server-private.pem': 'real key material\n' });
   const ids = ruleIds(r);
   assert.equal(ids.filter((x) => x === 'private-key-file').length, 2);
 });

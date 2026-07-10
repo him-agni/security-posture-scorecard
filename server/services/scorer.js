@@ -4,6 +4,8 @@ const { layers: layerMeta } = require('../checks');
 // How much of its weight a check "keeps": pass = all, warn = half, fail = none.
 // manual / na / error do not participate (can't be verified -> can't be scored).
 const STATUS_FACTOR = { pass: 1, warn: 0.5, fail: 0 };
+const CONFIDENCE_RANK = { verified: 3, detected: 2, manual: 1 };
+const STATUS_PRIORITY = { fail: 3, error: 3, warn: 2 };
 
 function gradeFor(score) {
   if (score >= 90) return 'A';
@@ -32,6 +34,72 @@ function scoreChecks(checks) {
   });
   const score = weight === 0 ? 100 : Math.round((earned / weight) * 100);
   return { scored, weight, earned, score };
+}
+
+function buildPriorityFixes(reportLayers) {
+  const fixes = [];
+
+  for (const layer of reportLayers) {
+    if (layer.notApplicable) continue;
+    for (const check of layer.checks) {
+      if (!['fail', 'error', 'warn'].includes(check.status)) continue;
+
+      fixes.push({
+        id: `${layer.id}:${check.id}`,
+        layerId: layer.id,
+        layer: layer.label,
+        checkId: check.id,
+        title: check.label,
+        status: check.status,
+        severity: check.severity,
+        confidence: check.confidence,
+        pointsLost: check.scoreImpact?.deduction || 0,
+        why: summarizeFix(check),
+        firstFinding: check.findings?.[0] || null,
+      });
+    }
+
+    if (Array.isArray(layer.manualChecklist)) {
+      for (const item of layer.manualChecklist) {
+        fixes.push({
+          id: `${layer.id}:manual:${item.id}`,
+          layerId: layer.id,
+          layer: layer.label,
+          checkId: item.id,
+          title: item.label,
+          status: 'manual',
+          severity: item.severity,
+          confidence: 'manual',
+          pointsLost: 0,
+          why: item.why,
+          firstFinding: null,
+        });
+      }
+    }
+  }
+
+  return fixes
+    .sort((a, b) => priorityScore(b) - priorityScore(a))
+    .slice(0, 5)
+    .map((fix, index) => ({ rank: index + 1, ...fix }));
+}
+
+function priorityScore(fix) {
+  const severityWeight = config.severityWeights[fix.severity] || 0;
+  return (
+    severityWeight * 100 +
+    (fix.pointsLost || 0) * 10 +
+    (STATUS_PRIORITY[fix.status] || 1) * 8 +
+    (CONFIDENCE_RANK[fix.confidence] || 0)
+  );
+}
+
+function summarizeFix(check) {
+  const finding = check.findings?.[0];
+  if (finding?.message) return finding.message;
+  if (check.status === 'error') return 'This check could not run; inspect the check failure before trusting this area.';
+  if (check.status === 'fail') return 'This failed a scored security check and should be fixed before lower-impact warnings.';
+  return 'This warning reduced the score; fix it after higher-severity failures.';
 }
 
 /**
@@ -81,6 +149,7 @@ function scoreReport({ repo, defaultBranch, layers }) {
   }
 
   const overallScore = totalWeight === 0 ? 100 : Math.round((totalEarned / totalWeight) * 100);
+  const priorityFixes = buildPriorityFixes(reportLayers);
 
   return {
     repo,
@@ -93,6 +162,7 @@ function scoreReport({ repo, defaultBranch, layers }) {
       pointsLost: Math.round(totalWeight - totalEarned),
       model: 'Each check earns its severity weight: pass=full, warn=half, fail=none. Manual items are informational and excluded.',
     },
+    priorityFixes,
     layers: reportLayers,
   };
 }

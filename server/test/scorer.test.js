@@ -6,7 +6,14 @@ const { scoreReport, gradeFor } = require('../services/scorer');
 function report(checks) {
   return scoreReport({ repo: 'x/y', layers: new Map([['frontend', checks]]) });
 }
-const check = (status, severity, confidence = 'verified') => ({ id: 's', status, severity, confidence });
+const check = (status, severity, confidence = 'verified', extra = {}) => ({
+  id: extra.id || 's',
+  label: extra.label || 'Security check',
+  status,
+  severity,
+  confidence,
+  ...extra,
+});
 
 test('a single passing critical check scores 100 / A', () => {
   const r = report([check('pass', 'critical')]);
@@ -75,6 +82,34 @@ test('scoreImpact marks counted vs informational checks', () => {
   assert.equal(failImpact.counted, true);
   assert.equal(failImpact.deduction, 25);
   assert.equal(manualImpact.counted, false);
+});
+
+test('priorityFixes lists the highest-impact fixes first', () => {
+  const r = scoreReport({
+    repo: 'x/y',
+    layers: new Map([
+      [
+        'frontend',
+        [
+          check('warn', 'critical', 'detected', { id: 'warn-critical', label: 'Critical warning' }),
+          check('fail', 'high', 'verified', {
+            id: 'fail-high',
+            label: 'High verified fail',
+            findings: [{ file: 'src/app.js', line: 7, message: 'Fix auth first.' }],
+          }),
+          check('fail', 'low', 'verified', { id: 'fail-low', label: 'Low fail' }),
+          check('pass', 'critical', 'verified', { id: 'pass-critical', label: 'Passing check' }),
+        ],
+      ],
+    ]),
+  });
+
+  assert.equal(r.priorityFixes.length, 3);
+  assert.equal(r.priorityFixes[0].title, 'Critical warning');
+  assert.equal(r.priorityFixes[1].title, 'High verified fail');
+  assert.equal(r.priorityFixes[1].why, 'Fix auth first.');
+  assert.equal(r.priorityFixes[1].firstFinding.file, 'src/app.js');
+  assert.equal(r.priorityFixes.some((fix) => fix.title === 'Passing check'), false);
 });
 
 test('gradeFor boundaries', () => {

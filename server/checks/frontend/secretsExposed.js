@@ -2,10 +2,46 @@ const { rules, looksLikePlaceholder } = require('../../lib/secretPatterns');
 
 // Extensions worth scanning line-by-line for secret material.
 const SCAN_GLOB =
-  '**/*.{js,jsx,ts,tsx,mjs,cjs,json,yml,yaml,txt,md,py,rb,go,java,php,sh,bash,vue,svelte,html,xml,ini,conf,cfg,properties,tf,Dockerfile}';
+  '**/*.{js,jsx,ts,tsx,mjs,cjs,json,yml,yaml,py,rb,go,java,php,sh,bash,vue,svelte,html,xml,ini,conf,cfg,properties,tf,Dockerfile}';
 
 const MAX_LINE_LEN = 2000; // skip minified / data-blob lines
 const MAX_FINDINGS_PER_FILE = 25;
+const CONSERVATIVE_SKIP_SEGMENTS = new Set([
+  'docs',
+  'doc',
+  'test',
+  'tests',
+  '__tests__',
+  '__mocks__',
+  'fixtures',
+  'fixture',
+  'examples',
+  'example',
+  'samples',
+  'sample',
+  'mock',
+  'mocks',
+]);
+const CONSERVATIVE_SKIP_EXTENSIONS = /\.(md|mdx|rst|adoc|txt)$/i;
+const ENV_EXAMPLE_RE = /^\.env\.(example|sample|template|dist|local\.example)$/i;
+
+function isConservativeSkipPath(rel) {
+  const parts = rel.split('/');
+  const base = parts.at(-1) || '';
+  if (CONSERVATIVE_SKIP_EXTENSIONS.test(base)) return true;
+  return parts.slice(0, -1).some((part) => CONSERVATIVE_SKIP_SEGMENTS.has(part.toLowerCase()));
+}
+
+function isExampleEnvFile(rel) {
+  return ENV_EXAMPLE_RE.test(rel.split('/').pop() || '');
+}
+
+function looksLikeHashOrChecksum(line, matched) {
+  const lower = line.toLowerCase();
+  if (!/\b(hash|checksum|digest|sha256|sha1|md5|integrity|etag)\b/.test(lower)) return false;
+  if (/\b(secret|token|password|passwd|pwd|api[_-]?key|private[_-]?key)\b/.test(lower)) return false;
+  return true;
+}
 
 function scanFileForSecrets(rel, content) {
   const findings = [];
@@ -17,7 +53,8 @@ function scanFileForSecrets(rel, content) {
       const m = line.match(rule.regex);
       if (!m) continue;
       const matched = m[0];
-      if (looksLikePlaceholder(matched)) continue;
+      if (looksLikePlaceholder(matched) || looksLikePlaceholder(line)) continue;
+      if (looksLikeHashOrChecksum(line, matched)) continue;
       findings.push({
         file: rel,
         line: i + 1,
@@ -44,7 +81,10 @@ module.exports = {
       const base = f.split('/').pop();
       return base.startsWith('.env');
     });
-    const scanTargets = new Set([...ctx.glob(SCAN_GLOB), ...envFiles]);
+    const scanTargets = new Set([
+      ...ctx.glob(SCAN_GLOB).filter((f) => !isConservativeSkipPath(f)),
+      ...envFiles.filter((f) => !isExampleEnvFile(f) && !isConservativeSkipPath(f)),
+    ]);
     for (const rel of scanTargets) {
       const content = ctx.readFile(rel);
       if (content == null) continue;
@@ -54,7 +94,7 @@ module.exports = {
     // 2. A committed real .env file (not .env.example / .env.sample / .env.template).
     const committedEnv = envFiles.filter((f) => {
       const base = f.split('/').pop();
-      return !/\.(example|sample|template|dist|local\.example)$/i.test(base) &&
+      return !ENV_EXAMPLE_RE.test(base) &&
         base !== '.env.example' && base !== '.env.sample' && base !== '.env.template';
     });
     for (const f of committedEnv) {
@@ -87,9 +127,11 @@ module.exports = {
 
     // 4. Private-key material files in the repo.
     const keyFiles = ctx.allFiles.filter((f) => {
+      if (isConservativeSkipPath(f)) return false;
       const base = f.split('/').pop();
       return base === 'id_rsa' || base === 'id_dsa' || base === 'id_ecdsa' ||
-        base === 'id_ed25519' || /\.(pem|key|pfx|p12|keystore)$/i.test(base);
+        base === 'id_ed25519' || /(?:^|[._-])private(?:[._-].*)?\.(pem|key|pfx|p12|keystore)$/i.test(base) ||
+        /\.(pfx|p12|keystore)$/i.test(base);
     });
     for (const f of keyFiles) {
       findings.push({

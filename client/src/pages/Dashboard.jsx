@@ -3,6 +3,7 @@ import RepoInput from '../components/RepoInput.jsx';
 import LayerSection from '../components/LayerSection.jsx';
 import SidePanel from '../components/SidePanel.jsx';
 import StatTile from '../components/StatTile.jsx';
+import PriorityFixes from '../components/PriorityFixes.jsx';
 
 function tally(report) {
   let total = 0, pass = 0, warn = 0, fail = 0;
@@ -78,6 +79,8 @@ export default function Dashboard() {
                   </div>
                 );
               })()}
+
+              <PriorityFixes fixes={report.priorityFixes} />
 
               {report.layers.map((layer) => (
                 <div key={layer.id} className="animate-rise">

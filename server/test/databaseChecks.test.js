@@ -13,10 +13,11 @@ function ctxOf(files) {
   return { ctx, cleanup };
 }
 const MONGOOSE_PKG = '{"name":"api","dependencies":{"mongoose":"^8"}}';
-const mongoCredentialUrl =
-  'mongodb://' + 'admin' + ':' + 's3cr3t' + '@' + 'cluster0.mongodb.net/app';
-const mongoSrvCredentialUrl =
-  'mongodb+srv://' + 'user' + ':' + 'pass' + '@' + 'cluster0.mongodb.net/app';
+// Synthetic fixtures for the dbCredentials / encryptionInTransit checks. These
+// point at RFC 2606 reserved hosts (never a real cluster) so secret scanners
+// don't flag them — the checks only care about the URI *shape*, not the host.
+const mongoCredentialUrl = 'mongodb://user:pass@db.example.invalid/app';
+const mongoSrvCredentialUrl = 'mongodb+srv://user:pass@cluster.example.invalid/app';
 
 test('database checks are N/A when there is no database', () => {
   const { ctx, cleanup } = ctxOf({ 'package.json': '{"name":"lib"}', 'src/index.js': 'export const x=1;\n' });

@@ -10,6 +10,12 @@ const config = require('./../config');
 
 const octokit = new Octokit({ auth: config.githubToken });
 
+function isRateLimitError(err) {
+  const remaining = err.response?.headers?.['x-ratelimit-remaining'];
+  const message = `${err.message || ''} ${err.response?.data?.message || ''}`;
+  return remaining === '0' || /rate limit/i.test(message);
+}
+
 /**
  * Defense-in-depth against zip-slip: reject any archive entry that is absolute
  * or escapes the extraction root via `..`. GitHub tarballs never contain these,
@@ -42,7 +48,7 @@ async function fetchRepo(owner, repo, { signal, overrides = {} } = {}) {
     meta = data;
   } catch (err) {
     if (err.status === 404) throw new Error('REPO_NOT_FOUND');
-    if (err.status === 403) throw new Error('RATE_LIMITED');
+    if (err.status === 403) throw new Error(isRateLimitError(err) ? 'RATE_LIMITED' : 'REPO_NOT_FOUND');
     throw err;
   }
   if (meta.size * 1024 > config.maxRepoBytes) throw new Error('REPO_TOO_LARGE');

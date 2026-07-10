@@ -57,6 +57,52 @@ test('metadata failure creates no temp dir at all', async () => {
   assert.deepEqual(after, []);
 });
 
+test('metadata size guard rejects very large repos before creating a temp dir', async () => {
+  const before = new Set(fetcherTempDirs());
+  await assert.rejects(
+    fetchRepo('owner', 'monster', {
+      overrides: {
+        reposGet: async () => ({ data: { default_branch: 'main', size: 900 * 1024 } }),
+      },
+    }),
+    /REPO_TOO_LARGE/
+  );
+  const after = fetcherTempDirs().filter((n) => !before.has(n));
+  assert.deepEqual(after, []);
+});
+
+test('metadata 403 without rate-limit signal is treated as not found/private', async () => {
+  await assert.rejects(
+    fetchRepo('owner', 'private', {
+      overrides: {
+        reposGet: async () => {
+          const err = new Error('Resource not accessible by integration');
+          err.status = 403;
+          err.response = { headers: { 'x-ratelimit-remaining': '59' } };
+          throw err;
+        },
+      },
+    }),
+    /REPO_NOT_FOUND/
+  );
+});
+
+test('metadata 403 with rate-limit signal is treated as rate limited', async () => {
+  await assert.rejects(
+    fetchRepo('owner', 'repo', {
+      overrides: {
+        reposGet: async () => {
+          const err = new Error('API rate limit exceeded');
+          err.status = 403;
+          err.response = { headers: { 'x-ratelimit-remaining': '0' } };
+          throw err;
+        },
+      },
+    }),
+    /RATE_LIMITED/
+  );
+});
+
 test('isSafeEntryPath rejects zip-slip / absolute paths', () => {
   // safe
   assert.equal(isSafeEntryPath('repo-abc/src/index.js'), true);

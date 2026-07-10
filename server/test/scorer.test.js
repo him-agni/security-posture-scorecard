@@ -42,6 +42,26 @@ test('an all-manual layer defaults to 100 (nothing to penalize)', () => {
   assert.equal(r.overall.score, 100);
 });
 
+test('an empty report defaults to 100 with zero scored weight', () => {
+  const r = scoreReport({ repo: 'x/y', layers: new Map() });
+  assert.equal(r.overall.score, 100);
+  assert.equal(r.overall.grade, 'A');
+  assert.equal(r.scoring.totalWeight, 0);
+  assert.deepEqual(r.layers, []);
+});
+
+test('all passing scored checks produce a perfect score', () => {
+  const r = report([
+    check('pass', 'critical'),
+    check('pass', 'high', 'detected'),
+    check('pass', 'medium'),
+    check('pass', 'low'),
+  ]);
+  assert.equal(r.overall.score, 100);
+  assert.equal(r.overall.grade, 'A');
+  assert.equal(r.scoring.pointsLost, 0);
+});
+
 test('exposes the "show the math" breakdown', () => {
   const r = report([check('pass', 'critical'), check('fail', 'high')]);
   assert.equal(r.scoring.totalWeight, 65); // 40 + 25

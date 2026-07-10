@@ -36,8 +36,9 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: 'Internal error' });
 });
 
-// Only bind a port when run directly — importing the app in tests must not listen.
-if (require.main === module) {
+// Only bind a port when run directly outside serverless — importing the app in
+// tests or Vercel functions must not listen.
+if (require.main === module && !process.env.VERCEL) {
   app.listen(config.port, () => {
     console.log(`Security Scorecard API listening on http://localhost:${config.port}`);
     if (!config.githubToken) {

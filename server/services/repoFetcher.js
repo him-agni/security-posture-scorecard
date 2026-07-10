@@ -5,10 +5,16 @@ const { createWriteStream } = require('fs');
 const { pipeline } = require('stream/promises');
 const { Readable, Transform } = require('stream');
 const tar = require('tar');
-const { Octokit } = require('@octokit/rest');
 const config = require('./../config');
 
-const octokit = new Octokit({ auth: config.githubToken });
+let octokitPromise;
+
+async function getOctokit() {
+  if (!octokitPromise) {
+    octokitPromise = import('@octokit/rest').then(({ Octokit }) => new Octokit({ auth: config.githubToken }));
+  }
+  return octokitPromise;
+}
 
 function isRateLimitError(err) {
   const remaining = err.response?.headers?.['x-ratelimit-remaining'];
@@ -38,7 +44,10 @@ function isSafeEntryPath(entryPath) {
  */
 async function fetchRepo(owner, repo, { signal, overrides = {} } = {}) {
   const doFetch = overrides.fetch || fetch;
-  const reposGet = overrides.reposGet || ((args) => octokit.repos.get(args));
+  const reposGet = overrides.reposGet || (async (args) => {
+    const octokit = await getOctokit();
+    return octokit.repos.get(args);
+  });
 
   // 1. Resolve default branch + size guard (repo.size is in KB). No temp dir yet,
   //    so a failure here has nothing to clean up.

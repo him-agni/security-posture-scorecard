@@ -5,6 +5,10 @@ security checks across three layers, and returns a scored, graded report. Its
 defining trait is that **every finding reports how confident the scan can be** —
 `verified`, `detected`, or `manual` — so the tool never overclaims.
 
+<img width="1345" height="917" alt="image" src="https://github.com/user-attachments/assets/aaba5cba-d839-45a3-aa1b-efc37e7c5d20" />
+
+Live link: https://client-lime-alpha.vercel.app/
+
 The confidence of a layer drops as you go deeper, and the tool is honest about it:
 
 - **Frontend** — mostly `verified` (the flagship repo-wide secret scan lives here).
